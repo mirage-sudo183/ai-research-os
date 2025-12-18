@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light theme */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --bg-elevated: #ffffff;
+  
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  
+  --border: #e5e7eb;
+  --border-subtle: #f3f4f6;
+  
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-subtle: #eef2ff;
+  
+  --surface-hover: #f9fafb;
+  --surface-active: #f3f4f6;
+}
+
+.dark {
+  /* Dark theme - inspired by Linear/Arc */
+  --bg-primary: #0a0a0b;
+  --bg-secondary: #111113;
+  --bg-tertiary: #18181b;
+  --bg-elevated: #1c1c1f;
+  
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  
+  --border: #27272a;
+  --border-subtle: #1f1f23;
+  
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-subtle: rgba(129, 140, 248, 0.1);
+  
+  --surface-hover: #18181b;
+  --surface-active: #27272a;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-bg-primary text-text-primary antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-tertiary;
+  }
+  
+  /* Hide scrollbar when not hovering */
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Focus styles */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg-primary;
+  }
+}
+
+@layer components {
+  /* Sidebar item */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+           text-text-secondary hover:text-text-primary hover:bg-surface-hover
+           transition-colors duration-150 cursor-pointer;
+  }
+  
+  .sidebar-item.active {
+    @apply bg-accent-subtle text-accent;
+  }
+  
+  /* List item */
+  .list-item {
+    @apply px-4 py-3 border-b border-border-subtle hover:bg-surface-hover
+           transition-colors duration-150 cursor-pointer;
+  }
+  
+  .list-item.active {
+    @apply bg-surface-active;
+  }
+  
+  /* Card */
+  .card {
+    @apply bg-bg-elevated border border-border rounded-xl p-4;
+  }
+  
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 
+           text-sm font-medium rounded-lg transition-colors duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent;
+  }
+  
+  .btn-primary {
+    @apply bg-accent text-white hover:bg-accent-hover;
+  }
+  
+  .btn-secondary {
+    @apply bg-bg-tertiary text-text-primary hover:bg-surface-active;
+  }
+  
+  .btn-ghost {
+    @apply text-text-secondary hover:text-text-primary hover:bg-surface-hover;
+  }
+}
+
+@layer utilities {
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-purple-500;
+  }
+  
+  /* Subtle border glow for dark mode */
+  .border-glow {
+    box-shadow: 0 0 0 1px var(--border),
+                0 0 20px -5px rgba(129, 140, 248, 0.15);
+  }
+}
+
