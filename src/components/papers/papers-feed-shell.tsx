@@ -12,6 +12,7 @@ export function PapersFeedShell() {
     isLoading,
     isOnline,
     loadCachedFeed,
+    loadReadingList,
     fetchFeed,
     _startAutoRefresh,
     _stopAutoRefresh,
@@ -25,7 +26,8 @@ export function PapersFeedShell() {
     hasInitialized.current = true;
 
     const init = async () => {
-      await loadCachedFeed();
+      // Load both feed and reading list
+      await Promise.all([loadCachedFeed(), loadReadingList()]);
       if (navigator.onLine) {
         await fetchFeed();
       }
@@ -38,7 +40,7 @@ export function PapersFeedShell() {
     return () => {
       _stopAutoRefresh();
     };
-  }, [loadCachedFeed, fetchFeed, _startAutoRefresh, _stopAutoRefresh]);
+  }, [loadCachedFeed, loadReadingList, fetchFeed, _startAutoRefresh, _stopAutoRefresh]);
 
   if (isLoading) {
     return (

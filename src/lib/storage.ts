@@ -197,7 +197,26 @@ export async function getPapersFeed(params: ArxivFeedParams): Promise<ResearchIt
   const db = await getDB();
   const cacheKey = getArxivCacheKey(params);
   const cached = await db.get("feedCache", cacheKey);
-  return cached?.papers || [];
+  
+  if (!cached?.papers) return [];
+  
+  // Merge user state from papers store
+  const papersWithUserState = await Promise.all(
+    cached.papers.map(async (paper) => {
+      const stored = await db.get("papers", paper.id);
+      if (stored) {
+        return {
+          ...paper,
+          status: stored.status,
+          savedToReadingList: stored.savedToReadingList,
+          notes: stored.notes,
+        };
+      }
+      return paper;
+    })
+  );
+  
+  return papersWithUserState;
 }
 
 export async function savePapersFeed(

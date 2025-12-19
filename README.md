@@ -19,6 +19,14 @@ A web-first desktop research cockpit for AI exploration. Browse the latest paper
 - **Auto-Refresh**: Automatically refreshes every 15 minutes when the page is active
 - **Offline Support**: Works offline with cached results
 
+### Stage 3 - In-App PDF Reader
+- **Inline PDF Viewing**: Read papers directly in the app using PDF.js
+- **PDF Caching**: Downloaded PDFs are cached in IndexedDB for offline reading
+- **Scroll Position Memory**: Your reading position is saved and restored per paper
+- **Zoom Controls**: Zoom in/out for comfortable reading
+- **Page Navigation**: Jump between pages easily
+- **Offline Reading**: Read cached PDFs even when offline
+
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
@@ -28,6 +36,7 @@ A web-first desktop research cockpit for AI exploration. Browse the latest paper
 - **State Management**: Zustand
 - **Icons**: Lucide React
 - **XML Parsing**: fast-xml-parser (for arXiv Atom feeds)
+- **PDF Rendering**: PDF.js (pdfjs-dist)
 
 ## Getting Started
 
@@ -61,8 +70,10 @@ npm start
 src/
 ├── app/
 │   ├── api/
-│   │   └── arxiv/
-│   │       └── route.ts       # arXiv API proxy
+│   │   ├── arxiv/
+│   │   │   └── route.ts       # arXiv API proxy
+│   │   └── pdf/
+│   │       └── route.ts       # PDF proxy (for CORS)
 │   ├── feeds/
 │   │   └── papers/
 │   │       └── page.tsx       # Papers feed page
@@ -76,6 +87,7 @@ src/
 │   │   ├── papers-sidebar.tsx
 │   │   ├── papers-list-pane.tsx
 │   │   ├── paper-reader-pane.tsx
+│   │   ├── pdf-viewer.tsx     # In-app PDF reader
 │   │   └── offline-banner.tsx
 │   └── providers/
 │       ├── theme-provider.tsx
@@ -83,6 +95,7 @@ src/
 └── lib/
     ├── arxiv.ts               # arXiv query helpers
     ├── papers-store.ts        # Zustand store for papers feed
+    ├── pdf-storage.ts         # PDF caching & scroll positions
     ├── storage.ts             # IndexedDB operations
     └── types.ts               # TypeScript types
 ```
@@ -116,9 +129,10 @@ The feed supports:
 
 - [x] Stage 0: App skeleton with 3-pane layout
 - [x] Stage 1: Live arXiv papers feed
+- [x] Stage 3: In-app PDF reader with caching
 - [ ] Stage 2: Projects and notes organization
-- [ ] Stage 3: Advanced search and filtering
 - [ ] Stage 4: AI-powered paper summaries
+- [ ] Stage 5: PDF annotations and highlights
 
 ## License
 

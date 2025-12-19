@@ -7,10 +7,16 @@ import * as storage from "./storage";
 
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
+type ViewMode = "feed" | "reading-list";
+
 interface PapersFeedState {
   // Data
   papers: ResearchItem[];
   filteredPapers: ResearchItem[];
+  readingListPapers: ResearchItem[];
+  
+  // View mode
+  viewMode: ViewMode;
   
   // Feed params
   categories: string[];
@@ -28,12 +34,14 @@ interface PapersFeedState {
   selectedPaperId: string | null;
   
   // Actions
+  setViewMode: (mode: ViewMode) => void;
   setCategories: (categories: string[]) => void;
   setKeywords: (keywords: string) => void;
   setLocalFilter: (filter: string) => void;
   setSelectedPaper: (id: string | null) => void;
   
   loadCachedFeed: () => Promise<void>;
+  loadReadingList: () => Promise<void>;
   fetchFeed: () => Promise<void>;
   refreshFeed: () => Promise<void>;
   
@@ -53,6 +61,8 @@ export const usePapersFeed = create<PapersFeedState>((set, get) => ({
   // Initial state
   papers: [],
   filteredPapers: [],
+  readingListPapers: [],
+  viewMode: "feed",
   categories: DEFAULT_CATEGORIES,
   keywords: "",
   localFilter: "",
@@ -62,6 +72,17 @@ export const usePapersFeed = create<PapersFeedState>((set, get) => ({
   lastRefresh: null,
   isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
   selectedPaperId: null,
+
+  setViewMode: (mode) => {
+    set({ viewMode: mode, selectedPaperId: null, localFilter: "" });
+    if (mode === "reading-list") {
+      get().loadReadingList();
+    } else {
+      // Switching back to feed - re-apply filter to show feed papers
+      const { papers } = get();
+      set({ filteredPapers: papers });
+    }
+  },
 
   setCategories: (categories) => {
     set({ categories });
@@ -83,14 +104,16 @@ export const usePapersFeed = create<PapersFeedState>((set, get) => ({
   },
 
   _applyLocalFilter: () => {
-    const { papers, localFilter } = get();
+    const { papers, readingListPapers, viewMode, localFilter } = get();
+    const sourceList = viewMode === "reading-list" ? readingListPapers : papers;
+    
     if (!localFilter.trim()) {
-      set({ filteredPapers: papers });
+      set({ filteredPapers: sourceList });
       return;
     }
 
     const query = localFilter.toLowerCase();
-    const filtered = papers.filter((paper) => {
+    const filtered = sourceList.filter((paper) => {
       const titleMatch = paper.title.toLowerCase().includes(query);
       const abstractMatch = paper.abstract?.toLowerCase().includes(query);
       const authorMatch = paper.authors?.some((a) =>
@@ -102,7 +125,7 @@ export const usePapersFeed = create<PapersFeedState>((set, get) => ({
   },
 
   loadCachedFeed: async () => {
-    const { categories, keywords } = get();
+    const { categories, keywords, viewMode } = get();
     const params: ArxivFeedParams = { categories, keywords };
 
     try {
@@ -113,13 +136,30 @@ export const usePapersFeed = create<PapersFeedState>((set, get) => ({
       
       set({
         papers: cached,
-        filteredPapers: cached,
+        filteredPapers: viewMode === "feed" ? cached : get().filteredPapers,
         lastRefresh,
         isLoading: false,
       });
     } catch (error) {
       console.error("[PapersFeed] Failed to load cache:", error);
       set({ isLoading: false, error: "Failed to load cached feed" });
+    }
+  },
+
+  loadReadingList: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const readingList = await storage.getReadingList();
+      
+      set({
+        readingListPapers: readingList,
+        filteredPapers: readingList,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("[PapersFeed] Failed to load reading list:", error);
+      set({ isLoading: false, error: "Failed to load reading list" });
     }
   },
 
@@ -192,30 +232,69 @@ export const usePapersFeed = create<PapersFeedState>((set, get) => ({
   },
 
   toggleReadingList: async (paperId) => {
-    const { papers } = get();
-    const paper = papers.find((p) => p.id === paperId);
+    const { papers, readingListPapers, viewMode } = get();
+    const sourceList = viewMode === "reading-list" ? readingListPapers : papers;
+    const paper = sourceList.find((p) => p.id === paperId);
     if (!paper) return;
 
-    const updated = await storage.updatePaper(paperId, {
-      savedToReadingList: !paper.savedToReadingList,
-    });
-
+    const newValue = !paper.savedToReadingList;
+    let updatedPaper: ResearchItem;
+    
+    try {
+      // Try to update existing paper
+      updatedPaper = await storage.updatePaper(paperId, {
+        savedToReadingList: newValue,
+      });
+    } catch {
+      // Paper doesn't exist in store yet, save it first
+      updatedPaper = { ...paper, savedToReadingList: newValue, updatedAt: Date.now() };
+      await storage.savePaper(updatedPaper);
+    }
+    
+    // Update papers list
     set({
-      papers: papers.map((p) => (p.id === paperId ? updated : p)),
+      papers: papers.map((p) => (p.id === paperId ? updatedPaper : p)),
     });
+    
+    // Update reading list
+    if (newValue) {
+      // Added to reading list
+      set({
+        readingListPapers: [updatedPaper, ...readingListPapers.filter((p) => p.id !== paperId)],
+      });
+    } else {
+      // Removed from reading list
+      set({
+        readingListPapers: readingListPapers.filter((p) => p.id !== paperId),
+      });
+    }
+    
     get()._applyLocalFilter();
   },
 
   updatePaperStatus: async (paperId, status) => {
-    const { papers } = get();
-    const paper = papers.find((p) => p.id === paperId);
+    const { papers, readingListPapers, viewMode } = get();
+    const sourceList = viewMode === "reading-list" ? readingListPapers : papers;
+    const paper = sourceList.find((p) => p.id === paperId);
     if (!paper) return;
 
-    const updated = await storage.updatePaper(paperId, { status });
-
+    let updatedPaper: ResearchItem;
+    
+    try {
+      // Try to update existing paper
+      updatedPaper = await storage.updatePaper(paperId, { status });
+    } catch {
+      // Paper doesn't exist in store yet, save it first
+      updatedPaper = { ...paper, status, updatedAt: Date.now() };
+      await storage.savePaper(updatedPaper);
+    }
+    
+    // Update both papers list and reading list
     set({
-      papers: papers.map((p) => (p.id === paperId ? updated : p)),
+      papers: papers.map((p) => (p.id === paperId ? updatedPaper : p)),
+      readingListPapers: readingListPapers.map((p) => (p.id === paperId ? updatedPaper : p)),
     });
+    
     get()._applyLocalFilter();
   },
 

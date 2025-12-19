@@ -10,6 +10,7 @@ import {
   Check,
   ChevronDown,
   X,
+  Bookmark,
 } from "lucide-react";
 import { usePapersFeed } from "@/lib/papers-store";
 import { AVAILABLE_CATEGORIES } from "@/lib/arxiv";
@@ -18,6 +19,7 @@ import type { ResearchItem } from "@/lib/types";
 export function PapersListPane() {
   const {
     filteredPapers,
+    viewMode,
     categories,
     keywords,
     localFilter,
@@ -31,6 +33,8 @@ export function PapersListPane() {
     setSelectedPaper,
     fetchFeed,
   } = usePapersFeed();
+
+  const isReadingList = viewMode === "reading-list";
 
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const categoryFilterRef = useRef<HTMLDivElement>(null);
@@ -101,100 +105,108 @@ export function PapersListPane() {
     <div className="w-80 lg:w-96 h-full flex flex-col bg-bg-primary border-r border-border shrink-0">
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-border">
-        <h2 className="font-semibold text-text-primary">Papers Feed</h2>
-        <button
-          onClick={() => fetchFeed()}
-          disabled={isFetching || !isOnline}
-          className={clsx(
-            "p-2 rounded-lg transition-colors",
-            isFetching || !isOnline
-              ? "text-text-tertiary cursor-not-allowed"
-              : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
-          )}
-          title={isOnline ? "Refresh feed" : "Offline"}
-        >
-          <RefreshCw
-            className={clsx("w-4 h-4", isFetching && "animate-spin")}
-          />
-        </button>
+        <h2 className="font-semibold text-text-primary">
+          {isReadingList ? "Reading List" : "Papers Feed"}
+        </h2>
+        {!isReadingList && (
+          <button
+            onClick={() => fetchFeed()}
+            disabled={isFetching || !isOnline}
+            className={clsx(
+              "p-2 rounded-lg transition-colors",
+              isFetching || !isOnline
+                ? "text-text-tertiary cursor-not-allowed"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            )}
+            title={isOnline ? "Refresh feed" : "Offline"}
+          >
+            <RefreshCw
+              className={clsx("w-4 h-4", isFetching && "animate-spin")}
+            />
+          </button>
+        )}
       </div>
 
       {/* Controls */}
       <div className="p-3 space-y-3 border-b border-border-subtle">
-        {/* Category filter */}
-        <div className="relative" ref={categoryFilterRef}>
-          <button
-            onClick={() => setShowCategoryFilter(!showCategoryFilter)}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-bg-secondary rounded-lg text-sm hover:bg-surface-hover transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-text-tertiary" />
-              <span className="text-text-secondary">
-                {categories.length} categories
-              </span>
-            </div>
-            <ChevronDown
-              className={clsx(
-                "w-4 h-4 text-text-tertiary transition-transform",
-                showCategoryFilter && "rotate-180"
+        {/* Category filter - only show in feed mode */}
+        {!isReadingList && (
+          <>
+            <div className="relative" ref={categoryFilterRef}>
+              <button
+                onClick={() => setShowCategoryFilter(!showCategoryFilter)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-bg-secondary rounded-lg text-sm hover:bg-surface-hover transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-text-tertiary" />
+                  <span className="text-text-secondary">
+                    {categories.length} categories
+                  </span>
+                </div>
+                <ChevronDown
+                  className={clsx(
+                    "w-4 h-4 text-text-tertiary transition-transform",
+                    showCategoryFilter && "rotate-180"
+                  )}
+                />
+              </button>
+
+              {showCategoryFilter && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 p-2 bg-bg-elevated border border-border rounded-lg shadow-lg animate-fade-in">
+                  <div className="max-h-64 overflow-y-auto space-y-1">
+                    {AVAILABLE_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => handleCategoryToggle(cat.id)}
+                        className={clsx(
+                          "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                          categories.includes(cat.id)
+                            ? "bg-accent-subtle text-accent"
+                            : "text-text-secondary hover:bg-surface-hover"
+                        )}
+                      >
+                        <div
+                          className={clsx(
+                            "w-4 h-4 rounded border flex items-center justify-center",
+                            categories.includes(cat.id)
+                              ? "bg-accent border-accent"
+                              : "border-border"
+                          )}
+                        >
+                          {categories.includes(cat.id) && (
+                            <Check className="w-3 h-3 text-white" />
+                          )}
+                        </div>
+                        <span className="flex-1 text-left">{cat.label}</span>
+                        <span className="text-xs text-text-tertiary">{cat.id}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            />
-          </button>
-
-          {showCategoryFilter && (
-            <div className="absolute z-20 top-full left-0 right-0 mt-1 p-2 bg-bg-elevated border border-border rounded-lg shadow-lg animate-fade-in">
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {AVAILABLE_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategoryToggle(cat.id)}
-                    className={clsx(
-                      "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                      categories.includes(cat.id)
-                        ? "bg-accent-subtle text-accent"
-                        : "text-text-secondary hover:bg-surface-hover"
-                    )}
-                  >
-                    <div
-                      className={clsx(
-                        "w-4 h-4 rounded border flex items-center justify-center",
-                        categories.includes(cat.id)
-                          ? "bg-accent border-accent"
-                          : "border-border"
-                      )}
-                    >
-                      {categories.includes(cat.id) && (
-                        <Check className="w-3 h-3 text-white" />
-                      )}
-                    </div>
-                    <span className="flex-1 text-left">{cat.label}</span>
-                    <span className="text-xs text-text-tertiary">{cat.id}</span>
-                  </button>
-                ))}
-              </div>
             </div>
-          )}
-        </div>
 
-        {/* Keyword query */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary rounded-lg">
-          <Search className="w-4 h-4 text-text-tertiary shrink-0" />
-          <input
-            type="text"
-            value={keywords}
-            onChange={(e) => handleKeywordChange(e.target.value)}
-            placeholder="agent, multi-agent, tool use..."
-            className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
-          />
-          {keywords && (
-            <button
-              onClick={() => handleKeywordChange("")}
-              className="p-0.5 text-text-tertiary hover:text-text-secondary"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+            {/* Keyword query */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary rounded-lg">
+              <Search className="w-4 h-4 text-text-tertiary shrink-0" />
+              <input
+                type="text"
+                value={keywords}
+                onChange={(e) => handleKeywordChange(e.target.value)}
+                placeholder="agent, multi-agent, tool use..."
+                className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
+              />
+              {keywords && (
+                <button
+                  onClick={() => handleKeywordChange("")}
+                  className="p-0.5 text-text-tertiary hover:text-text-secondary"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Local filter */}
         <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary rounded-lg">
@@ -203,7 +215,7 @@ export function PapersListPane() {
             type="text"
             value={localFilter}
             onChange={(e) => setLocalFilter(e.target.value)}
-            placeholder="Filter results..."
+            placeholder={isReadingList ? "Filter reading list..." : "Filter results..."}
             className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
           />
           {localFilter && (
@@ -216,12 +228,13 @@ export function PapersListPane() {
           )}
         </div>
 
-        {/* Last updated */}
+        {/* Count and last updated */}
         <div className="flex items-center justify-between px-1 text-xs text-text-tertiary">
           <span>
             {filteredPapers.length} paper{filteredPapers.length !== 1 ? "s" : ""}
+            {isReadingList ? " saved" : ""}
           </span>
-          <span>Updated {formatLastRefresh(lastRefresh)}</span>
+          {!isReadingList && <span>Updated {formatLastRefresh(lastRefresh)}</span>}
         </div>
       </div>
 
@@ -330,12 +343,17 @@ function PaperListItem({
 }
 
 function EmptyPapersList() {
-  const { isFetching, error, isOnline, fetchFeed } = usePapersFeed();
+  const { isFetching, error, isOnline, viewMode, fetchFeed } = usePapersFeed();
+  const isReadingList = viewMode === "reading-list";
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
       <div className="w-12 h-12 rounded-xl bg-bg-tertiary flex items-center justify-center mb-4">
-        <FileText className="w-6 h-6 text-text-tertiary" />
+        {isReadingList ? (
+          <Bookmark className="w-6 h-6 text-text-tertiary" />
+        ) : (
+          <FileText className="w-6 h-6 text-text-tertiary" />
+        )}
       </div>
       {error ? (
         <>
@@ -345,7 +363,7 @@ function EmptyPapersList() {
           <p className="text-xs text-text-tertiary mb-4 max-w-[200px]">
             {error}
           </p>
-          {isOnline && (
+          {isOnline && !isReadingList && (
             <button
               onClick={() => fetchFeed()}
               disabled={isFetching}
@@ -357,6 +375,15 @@ function EmptyPapersList() {
               Try again
             </button>
           )}
+        </>
+      ) : isReadingList ? (
+        <>
+          <h3 className="text-sm font-medium text-text-primary mb-1">
+            No saved papers
+          </h3>
+          <p className="text-xs text-text-tertiary max-w-[200px]">
+            Save papers from the feed by clicking the bookmark icon
+          </p>
         </>
       ) : (
         <>

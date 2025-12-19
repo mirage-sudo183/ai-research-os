@@ -11,11 +11,11 @@ import {
   Monitor,
 } from "lucide-react";
 import { useTheme } from "@/components/providers/theme-provider";
-
-type NavItem = "feed" | "reading-list";
+import { usePapersFeed } from "@/lib/papers-store";
 
 export function PapersSidebar() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { viewMode, setViewMode, readingListPapers } = usePapersFeed();
 
   return (
     <aside className="w-16 lg:w-56 h-full flex flex-col bg-bg-secondary border-r border-border shrink-0">
@@ -47,18 +47,19 @@ export function PapersSidebar() {
           </span>
         </div>
 
-        <SidebarItem
+        <SidebarButton
           icon={Rss}
           label="Papers Feed"
-          isActive={true}
-          href="/feeds/papers"
+          isActive={viewMode === "feed"}
+          onClick={() => setViewMode("feed")}
         />
 
-        <SidebarItem
+        <SidebarButton
           icon={Bookmark}
           label="Reading List"
-          isActive={false}
-          href="/feeds/papers?filter=saved"
+          isActive={viewMode === "reading-list"}
+          onClick={() => setViewMode("reading-list")}
+          badge={readingListPapers.length > 0 ? readingListPapers.length : undefined}
         />
       </nav>
 
@@ -120,20 +121,22 @@ export function PapersSidebar() {
   );
 }
 
-function SidebarItem({
+function SidebarButton({
   icon: Icon,
   label,
   isActive,
-  href,
+  onClick,
+  badge,
 }: {
   icon: typeof Rss;
   label: string;
   isActive: boolean;
-  href: string;
+  onClick: () => void;
+  badge?: number;
 }) {
   return (
-    <Link
-      href={href}
+    <button
+      onClick={onClick}
       className={clsx(
         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150",
         isActive
@@ -142,8 +145,16 @@ function SidebarItem({
       )}
     >
       <Icon className="w-5 h-5 shrink-0" />
-      <span className="hidden lg:block">{label}</span>
-    </Link>
+      <span className="hidden lg:block flex-1 text-left">{label}</span>
+      {badge !== undefined && (
+        <span className={clsx(
+          "hidden lg:block px-1.5 py-0.5 text-xs font-medium rounded-full",
+          isActive ? "bg-accent text-white" : "bg-bg-tertiary text-text-secondary"
+        )}>
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
 

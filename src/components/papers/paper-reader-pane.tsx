@@ -1,17 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { clsx } from "clsx";
 import {
   FileText,
   ExternalLink,
-  FileDown,
   Bookmark,
   BookmarkCheck,
   Check,
   ChevronDown,
+  BookOpen,
+  Info,
 } from "lucide-react";
 import { usePapersFeed } from "@/lib/papers-store";
+import { PdfViewer } from "./pdf-viewer";
 import type { ReadStatus } from "@/lib/types";
 
 const STATUS_OPTIONS: { value: ReadStatus; label: string; color: string }[] = [
@@ -21,52 +23,90 @@ const STATUS_OPTIONS: { value: ReadStatus; label: string; color: string }[] = [
   { value: "deep", label: "Deep Read", color: "text-purple-500" },
 ];
 
+type ReaderView = "info" | "pdf";
+
 export function PaperReaderPane() {
   const {
     papers,
+    readingListPapers,
+    viewMode,
     selectedPaperId,
     toggleReadingList,
     updatePaperStatus,
   } = usePapersFeed();
 
+  const [readerView, setReaderView] = useState<ReaderView>("info");
+
   const selectedPaper = useMemo(() => {
     if (!selectedPaperId) return null;
-    return papers.find((p) => p.id === selectedPaperId) || null;
-  }, [papers, selectedPaperId]);
+    const sourceList = viewMode === "reading-list" ? readingListPapers : papers;
+    return sourceList.find((p) => p.id === selectedPaperId) || null;
+  }, [papers, readingListPapers, viewMode, selectedPaperId]);
+
+  // Reset to info view when paper changes
+  useEffect(() => {
+    setReaderView("info");
+  }, [selectedPaperId]);
 
   if (!selectedPaper) {
     return <EmptyReaderState />;
   }
 
-  const publishedDate = selectedPaper.publishedAt
-    ? new Date(selectedPaper.publishedAt).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : null;
+  const hasPdf = !!selectedPaper.pdfUrl;
 
   return (
     <div className="flex-1 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="h-14 flex items-center justify-between px-6 border-b border-border shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          {selectedPaper.primaryCategory && (
-            <span className="px-2 py-1 text-xs font-medium bg-accent-subtle text-accent rounded shrink-0">
-              {selectedPaper.primaryCategory}
+      <div className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center p-1 bg-bg-secondary rounded-lg">
+            <button
+              onClick={() => setReaderView("info")}
+              className={clsx(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                readerView === "info"
+                  ? "bg-bg-elevated text-text-primary shadow-sm"
+                  : "text-text-tertiary hover:text-text-secondary"
+              )}
+            >
+              <Info className="w-4 h-4" />
+              <span className="hidden sm:inline">Info</span>
+            </button>
+            <button
+              onClick={() => setReaderView("pdf")}
+              disabled={!hasPdf}
+              className={clsx(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                readerView === "pdf"
+                  ? "bg-bg-elevated text-text-primary shadow-sm"
+                  : "text-text-tertiary hover:text-text-secondary",
+                !hasPdf && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </button>
+          </div>
+
+          {/* Paper ID */}
+          <div className="hidden md:flex items-center gap-2 ml-2">
+            {selectedPaper.primaryCategory && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-accent-subtle text-accent rounded">
+                {selectedPaper.primaryCategory}
+              </span>
+            )}
+            <span className="text-xs text-text-tertiary">
+              {selectedPaper.arxivId}
             </span>
-          )}
-          <span className="text-sm text-text-secondary truncate">
-            {selectedPaper.arxivId}
-          </span>
+          </div>
         </div>
+
         <div className="flex items-center gap-2 shrink-0">
           {/* Status dropdown */}
           <StatusDropdown
             status={selectedPaper.status || "unread"}
-            onChange={(status) =>
-              updatePaperStatus(selectedPaper.id, status)
-            }
+            onChange={(status) => updatePaperStatus(selectedPaper.id, status)}
           />
           {/* Save to reading list */}
           <button
@@ -93,79 +133,99 @@ export function PaperReaderPane() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Title */}
-          <h1 className="text-2xl font-semibold text-text-primary leading-tight">
-            {selectedPaper.title}
-          </h1>
+      {readerView === "info" ? (
+        <InfoView
+          paper={selectedPaper}
+          onReadPdf={() => setReaderView("pdf")}
+        />
+      ) : (
+        <PdfViewer
+          paperId={selectedPaper.id}
+          pdfUrl={selectedPaper.pdfUrl!}
+          title={selectedPaper.title}
+        />
+      )}
+    </div>
+  );
+}
 
-          {/* Authors */}
-          {selectedPaper.authors && selectedPaper.authors.length > 0 && (
-            <p className="text-sm text-text-secondary">
-              {selectedPaper.authors.join(", ")}
-            </p>
+function InfoView({
+  paper,
+  onReadPdf,
+}: {
+  paper: NonNullable<ReturnType<typeof usePapersFeed>["papers"][0]>;
+  onReadPdf: () => void;
+}) {
+  const publishedDate = paper.publishedAt
+    ? new Date(paper.publishedAt).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null;
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Title */}
+        <h1 className="text-2xl font-semibold text-text-primary leading-tight">
+          {paper.title}
+        </h1>
+
+        {/* Authors */}
+        {paper.authors && paper.authors.length > 0 && (
+          <p className="text-sm text-text-secondary">{paper.authors.join(", ")}</p>
+        )}
+
+        {/* Meta row */}
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          {publishedDate && (
+            <span className="text-text-tertiary">Published {publishedDate}</span>
           )}
-
-          {/* Meta row */}
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            {publishedDate && (
-              <span className="text-text-tertiary">
-                Published {publishedDate}
-              </span>
-            )}
-            {selectedPaper.categories && selectedPaper.categories.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {selectedPaper.categories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="px-2 py-0.5 text-xs bg-bg-tertiary text-text-secondary rounded"
-                  >
-                    {cat}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-3">
-            {selectedPaper.pdfUrl && (
-              <a
-                href={selectedPaper.pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-primary"
-              >
-                <FileDown className="w-4 h-4" />
-                Open PDF
-              </a>
-            )}
-            {selectedPaper.url && (
-              <a
-                href={selectedPaper.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-secondary"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open arXiv
-              </a>
-            )}
-          </div>
-
-          {/* Abstract */}
-          {selectedPaper.abstract && (
-            <div className="card">
-              <h3 className="text-sm font-medium text-text-primary mb-3">
-                Abstract
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                {selectedPaper.abstract}
-              </p>
+          {paper.categories && paper.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {paper.categories.map((cat) => (
+                <span
+                  key={cat}
+                  className="px-2 py-0.5 text-xs bg-bg-tertiary text-text-secondary rounded"
+                >
+                  {cat}
+                </span>
+              ))}
             </div>
           )}
         </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
+          {paper.pdfUrl && (
+            <button onClick={onReadPdf} className="btn btn-primary">
+              <BookOpen className="w-4 h-4" />
+              Read PDF
+            </button>
+          )}
+          {paper.url && (
+            <a
+              href={paper.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open arXiv
+            </a>
+          )}
+        </div>
+
+        {/* Abstract */}
+        {paper.abstract && (
+          <div className="card">
+            <h3 className="text-sm font-medium text-text-primary mb-3">Abstract</h3>
+            <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+              {paper.abstract}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -196,9 +256,7 @@ function StatusDropdown({
               option.color
             )}
           >
-            {status === option.value && (
-              <Check className="w-3.5 h-3.5" />
-            )}
+            {status === option.value && <Check className="w-3.5 h-3.5" />}
             <span className={status !== option.value ? "ml-5" : ""}>
               {option.label}
             </span>
@@ -224,4 +282,3 @@ function EmptyReaderState() {
     </div>
   );
 }
-
